@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Geoportal — Plano histórico vs mapa base</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    html,body{height:100%;margin:0} body{font-family:system-ui,Segoe UI,Roboto,Arial}
+    #top{display:flex;gap:.5rem;align-items:center;padding:.5rem .75rem;background:#111827;color:#e5e7eb}
+    #map{height:calc(100% - 48px)} .card{background:#0f172a;color:#e5e7eb;border-radius:10px;padding:.35rem .5rem;display:flex;gap:.5rem;align-items:center}
+    input[type=range]{width:160px} select,button{background:#111827;color:#e5e7eb;border:1px solid #1f2937;border-radius:10px;padding:.3rem .6rem;cursor:pointer}
+  </style>
+</head>
+<body>
+  <div id="top">
+    <strong>Geoportal — Comparador de opacidad</strong>
+    <div class="card">
+      <span>Base</span>
+      <select id="base">
+        <option value="osm">OSM</option>
+        <option value="opentopo">OpenTopo</option>
+        <option value="esri">Esri Imagery</option>
+      </select>
+    </div>
+    <div class="card">
+      <span>Opacidad</span>
+      <input id="op" type="range" min="0" max="1" step="0.05" value="0.6">
+      <button data-op="0">0%</button><button data-op=".5">50%</button><button data-op="1">100%</button>
+      <button id="tog">Ocultar/Mostrar</button>
+    </div>
+  </div>
+  <div id="map"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // Ruta a tus teselas (carpeta con 12, 13, 14, 15, 16, 17)
+    const RASTER_URL = "./tiles/{z}/{x}/{y}.png";
+    // Si las ves “invertidas” verticalmente, cambia a true:
+    const USE_TMS = false;
+
+    const map = L.map("map", { center:[17.046,-96.635], zoom:14 });
+
+    const base = {
+      osm: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:20,attribution:"© OpenStreetMap"}),
+      opentopo: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",{maxZoom:18,attribution:"© OpenTopoMap, © OSM"}),
+      esri: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",{maxZoom:20,attribution:"© Esri, Maxar"})
+    };
+    base.osm.addTo(map);
+
+    const raster = L.tileLayer(RASTER_URL,{
+      opacity:0.6, maxZoom:22, tms:USE_TMS,
+      attribution:'Plano histórico (fuente/año)'
+    }).addTo(map);
+
+    document.getElementById("base").addEventListener("change", e=>{
+      Object.values(base).forEach(l=>map.removeLayer(l));
+      base[e.target.value].addTo(map);
+    });
+
+    const op = document.getElementById("op");
+    const setOp = v => { raster.setOpacity(parseFloat(v)); op.value=v; };
+    op.addEventListener("input", e=>setOp(e.target.value));
+    document.querySelectorAll("button[data-op]").forEach(b=>b.onclick=()=>setOp(b.dataset.op));
+
+    const tog = document.getElementById("tog");
+    let on = true; tog.onclick=()=>{ on ? map.removeLayer(raster) : raster.addTo(map); on=!on; tog.textContent = on?'Ocultar':'Mostrar'; };
+  </script>
+</body>
+</html>
