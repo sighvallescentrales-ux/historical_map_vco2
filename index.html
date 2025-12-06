@@ -3,160 +3,223 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Geoportal — Mapas históricos</title>
+  <title>Visor Geohistórico Interactivo (VGI)</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <style>
-    html,body{height:100%;margin:0}
-    body{font-family:system-ui,Segoe UI,Roboto,Arial}
+    html, body{
+      height:100%;
+      margin:0;
+    }
+    body{
+      display:flex;
+      flex-direction:column;
+      font-family:system-ui,Segoe UI,Roboto,Arial;
+      background:#704214;
+      color:#f5f5f4;
+    }
+
+    /* Barra superior */
     #top{
       display:flex;
-      gap:.5rem;
+      gap:1rem;
       align-items:flex-start;
-      padding:.5rem .75rem;
-      background:#111827;
-      color:#e5e7eb;
+      padding:.7rem .9rem;
+      background:#4f2d10;
+      box-shadow:0 2px 6px rgba(0,0,0,.35);
+      z-index:1000;
+      flex-wrap:wrap;
     }
-    #map{height:calc(100% - 70px)}
+
+    .app-title{
+      font-weight:700;
+      font-size:1.15rem;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      text-shadow:0 1px 2px rgba(0,0,0,.4);
+      line-height:1.2;
+    }
+
+    .subtitle{
+      font-size:.82rem;
+      margin-top:.15rem;
+      opacity:0.9;
+      max-width:300px;
+      line-height:1.1;
+    }
+
     .card{
-      background:#0f172a;
-      color:#e5e7eb;
-      border-radius:10px;
-      padding:.4rem .6rem;
+      background:#5c3413;
+      color:#f5f5f4;
+      border-radius:12px;
+      padding:.5rem .7rem;
       display:flex;
       flex-direction:column;
       gap:.35rem;
       font-size:.9rem;
+      border:1px solid #8c5930;
     }
-    .card-header{font-weight:600;margin-bottom:.15rem}
+    .card-header{
+      font-weight:600;
+      margin-bottom:.15rem;
+      font-size:.9rem;
+    }
+
+    select{
+      background:#704214;
+      color:#f5f5f4;
+      border:1px solid #8c5930;
+      border-radius:999px;
+      padding:.3rem .7rem;
+      cursor:pointer;
+      font-size:.85rem;
+    }
+
+    #map-container{
+      position:relative;
+      flex:1;
+    }
+    #map{
+      position:absolute;
+      inset:0;
+    }
+
+    /* Panel lateral histórico */
+    #overlay-panel{
+      position:absolute;
+      top:1rem;
+      right:1rem;
+      z-index:1200;
+      width:300px;
+    }
+
     .overlay-row{
       display:flex;
+      justify-content:space-between;
       align-items:center;
-      gap:.35rem;
-      margin-bottom:.25rem;
+      margin-bottom:.4rem;
       font-size:.8rem;
+      width:100%;
     }
+
     .overlay-row label{
       display:flex;
       align-items:center;
       gap:.25rem;
-      min-width:150px;
+      flex:1;
     }
-    input[type=range]{width:120px}
-    select,button{
-      background:#111827;
-      color:#e5e7eb;
-      border:1px solid #1f2937;
-      border-radius:10px;
-      padding:.3rem .6rem;
-      cursor:pointer;
+
+    input[type=range]{
+      width:120px;
+      margin-left:.3rem;
+    }
+
+    /* Footer */
+    #footer{
+      background:#4f2d10;
+      color:#f5f5f4;
+      font-size:.78rem;
+      text-align:center;
+      padding:.25rem .5rem;
+      border-top:1px solid #8c5930;
     }
   </style>
 </head>
 <body>
-  <div id="top">
-    <strong style="margin-right:.5rem;margin-top:.3rem;">
-      Geoportal — Mapas históricos
-    </strong>
 
-    <!-- BASES -->
+  <div id="top">
+    <div>
+      <div class="app-title">Visor Geohistórico Interactivo (VGI)</div>
+      <div class="subtitle">Recuperación de los territorios, haciendas y pueblos de los siglos XIX–XX</div>
+    </div>
+
+    <!-- MAPAS BASE -->
     <div class="card">
       <div class="card-header">Mapas base</div>
       <select id="base">
         <option value="osm">OSM</option>
-        <option value="opentopo">OpenTopo</option>
+        <option value="opentopo" selected>OpenTopo</option>
         <option value="esri">Esri Imagery</option>
       </select>
     </div>
+  </div>
 
-    <!-- OVERLAYS HISTÓRICOS -->
-    <div class="card">
+  <div id="map-container">
+    <div id="map"></div>
+
+    <!-- PANEL LATERAL -->
+    <div id="overlay-panel" class="card">
       <div class="card-header">Mapas históricos (XY tiles)</div>
       <div id="overlays"></div>
     </div>
   </div>
 
-  <div id="map"></div>
+  <div id="footer">
+    Construido por: Antonio Escobar Ohmstede, Daniela Osorio Crespo y Carlos Alfredo Hernández Guillén
+  </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
   <script>
     const map = L.map("map", { center:[17.046,-96.635], zoom:14 });
 
-    // --- MAPAS BASE ---
+    /* MAPAS BASE */
     const base = {
       osm: L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        {maxZoom:20,attribution:"© OpenStreetMap"}
-      ),
+        {maxZoom:20, attribution:"© OpenStreetMap"}),
       opentopo: L.tileLayer("https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png",
-        {maxZoom:18,attribution:"© OpenTopoMap, © OSM"}
-      ),
-      esri: L.tileLayer(
-        "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-        {maxZoom:20,attribution:"© Esri, Maxar"}
-      )
+        {maxZoom:18, attribution:"© OpenTopoMap"}),
+      esri: L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        {maxZoom:20, attribution:"© Esri, Maxar"})
     };
-    base.osm.addTo(map);
+
+    // Base inicial: OpenTopo
+    base.opentopo.addTo(map);
 
     document.getElementById("base").addEventListener("change", e=>{
       Object.values(base).forEach(l=>map.removeLayer(l));
       base[e.target.value].addTo(map);
     });
 
-    // --- TUS 2 MAPAS HISTÓRICOS ---
+    /* MAPAS HISTÓRICOS */
     const overlayConfigs = [
-      {
-        id: "aranjuez",
-        nombre: "Plano H_Aranjuez",
-        url: "./tiles_aranjuez/{z}/{x}/{y}.png",
-        tms: false,
-        opacidadInicial: 0.6,
-        atrib: "Plano histórico Aranjuez (fuente/año)"
-      },
-      {
-        id: "cincosenores",
-        nombre: "Plano H_CincoSeñores",
-        url: "./tiles_cincosenores/{z}/{x}/{y}.png",
-        tms: false,
-        opacidadInicial: 0.6,
-        atrib: "Plano histórico Cinco Señores (fuente/año)"
-      }
+      { id:"aranjuez", nombre:"Hacienda Aranjuez",     url:"./tiles_aranjuez/{z}/{x}/{y}.png",    opacidadInicial:0.6 },
+      { id:"cincosenores", nombre:"Hacienda Cinco Señores", url:"./tiles_cincosenores/{z}/{x}/{y}.png", opacidadInicial:0.6 },
+      { id:"del_carmen", nombre:"Hacienda del Carmen", url:"./tiles_del_carmen/{z}/{x}/{y}.png", opacidadInicial:0.6 },
+      { id:"montoya", nombre:"Hacienda Montoya",       url:"./tiles_montoya/{z}/{x}/{y}.png",    opacidadInicial:0.6 },
+      { id:"rosario", nombre:"Hacienda del Rosario",   url:"./tiles_rosario/{z}/{x}/{y}.png",    opacidadInicial:0.6 }
     ];
 
     const overlayLayers = {};
     const overlaysDiv = document.getElementById("overlays");
 
     overlayConfigs.forEach(cfg => {
-      const layer = L.tileLayer(cfg.url,{
+      const layer = L.tileLayer(cfg.url, {
         opacity: cfg.opacidadInicial,
-        maxZoom:22,
-        tms: cfg.tms,
-        attribution: cfg.atrib
+        maxZoom:22
       });
+      // NO se agrega al mapa por defecto
       overlayLayers[cfg.id] = layer;
-
-      // Activamos por defecto
-      layer.addTo(map);
 
       const row = document.createElement("div");
       row.className = "overlay-row";
+
       row.innerHTML = `
         <label>
-          <input type="checkbox" data-id="${cfg.id}" checked>
+          <input type="checkbox" data-id="${cfg.id}">
           ${cfg.nombre}
         </label>
-        <input type="range"
-               min="0" max="1" step="0.05"
-               value="${cfg.opacidadInicial}"
-               data-id="${cfg.id}">
+        <input type="range" min="0" max="1" step="0.05"
+               value="${cfg.opacidadInicial}" data-id="${cfg.id}">
       `;
+
       overlaysDiv.appendChild(row);
 
       const chk = row.querySelector('input[type="checkbox"]');
       const rng = row.querySelector('input[type="range"]');
 
       chk.addEventListener("change", e => {
-        const id = e.target.dataset.id;
-        const lyr = overlayLayers[id];
-        if(e.target.checked){
+        const lyr = overlayLayers[e.target.dataset.id];
+        if (e.target.checked){
           lyr.addTo(map);
         } else {
           map.removeLayer(lyr);
@@ -164,9 +227,7 @@
       });
 
       rng.addEventListener("input", e => {
-        const id = e.target.dataset.id;
-        const lyr = overlayLayers[id];
-        lyr.setOpacity(parseFloat(e.target.value));
+        overlayLayers[e.target.dataset.id].setOpacity(parseFloat(e.target.value));
       });
     });
   </script>
