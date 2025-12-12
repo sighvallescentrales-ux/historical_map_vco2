@@ -4,7 +4,10 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Visor Geohistórico Interactivo (VGI)</title>
+
+  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
   <style>
     html, body{
       height:100%;
@@ -18,6 +21,7 @@
       color:#f5f5f4;
     }
 
+    /* Barra superior */
     #top{
       display:flex;
       gap:1rem;
@@ -73,16 +77,18 @@
       font-size:.85rem;
     }
 
+    /* Contenedor del mapa */
     #map-container{
       position:relative;
       flex:1;
     }
-    /* ESTA ES LA CAJA DONDE SE DIBUJA EL MAPA */
+    /* Aquí se dibuja el mapa */
     #map{
       position:absolute;
       inset:0;
     }
 
+    /* Panel lateral para los overlays */
     #overlay-panel{
       position:absolute;
       top:1rem;
@@ -112,6 +118,7 @@
       margin-left:.3rem;
     }
 
+    /* Footer */
     #footer{
       background:#4f2d10;
       color:#f5f5f4;
@@ -130,6 +137,7 @@
       <div class="subtitle">Recuperación de los territorios, haciendas y pueblos de los siglos XIX–XX</div>
     </div>
 
+    <!-- MAPAS BASE -->
     <div class="card">
       <div class="card-header">Mapas base</div>
       <select id="base">
@@ -141,9 +149,10 @@
   </div>
 
   <div id="map-container">
-    <!-- AQUÍ ESTÁ EL DIV IMPORTANTE: id="map" -->
+    <!-- Contenedor del mapa -->
     <div id="map"></div>
 
+    <!-- Panel lateral de mapas históricos -->
     <div id="overlay-panel" class="card">
       <div class="card-header">Mapas históricos (XY tiles)</div>
       <div id="overlays"></div>
@@ -154,13 +163,16 @@
     Construido por: Antonio Escobar Ohmstede, Daniela Osorio Crespo y Carlos Alfredo Hernández Guillén
   </div>
 
+  <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <script>
-  // Esperar a que el HTML esté listo
   document.addEventListener("DOMContentLoaded", function () {
 
-    const map = L.map("map", { center:[17.046,-96.635], zoom:14 });
+    const map = L.map("map", {
+      center:[17.046,-96.635],
+      zoom:14
+    });
 
     /* MAPAS BASE */
     const base = {
@@ -172,10 +184,11 @@
         {maxZoom:20, attribution:"© Esri, Maxar"})
     };
 
+    // Mapa base inicial
     base.opentopo.addTo(map);
 
-    document.getElementById("base").addEventListener("change", e=>{
-      Object.values(base).forEach(l=>map.removeLayer(l));
+    document.getElementById("base").addEventListener("change", e => {
+      Object.values(base).forEach(l => map.removeLayer(l));
       base[e.target.value].addTo(map);
     });
 
@@ -207,9 +220,10 @@
         opacity: cfg.opacidadInicial,
         minZoom: cfg.minZoom,
         maxZoom: cfg.maxZoom,
-        tms: false
+        tms: true   // <-- IMPORTANTE: tiles generados como TMS
       });
 
+      // Guardamos la capa pero NO la activamos por defecto
       overlayLayers[cfg.id] = layer;
 
       const row = document.createElement("div");
