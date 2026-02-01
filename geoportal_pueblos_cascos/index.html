@@ -71,6 +71,14 @@ html, body { height:100%; margin:0; }
 </div>
 
 <script>
+// ================== HELPERS ==================
+function openFicha(tipo, campo, valor){
+  const v = (valor ?? "").toString().trim();
+  if(!v) return;
+  const url = `ficha.html?tipo=${encodeURIComponent(tipo)}&campo=${encodeURIComponent(campo)}&valor=${encodeURIComponent(v)}`;
+  window.open(url, "_blank", "noopener");
+}
+
 // ================== MAPA BASE ==================
 const map = L.map("map").setView([17.07, -96.73], 9);
 
@@ -137,7 +145,7 @@ function clearHighlight(){
 
 // ================== CARGA DATOS ==================
 async function load(url){
-  const r = await fetch(url);
+  const r = await fetch(url, { cache:"no-store" });
   if(!r.ok) throw new Error(url);
   return r.json();
 }
@@ -173,8 +181,23 @@ overlays["Comunal"]=comunal;
 const pueblos = L.geoJSON(await load("data/pueblos.geojson"),{
   pointToLayer:marker("#ffcc00"),
   onEachFeature:(f,l)=>{
-    l.bindPopup(`<b>${f.properties.NOMGEO}</b>`);
-    addIdx("pueblos","NOMGEO",f.properties.NOMGEO,l);
+    const p = f.properties || {};
+    l.bindPopup(`<b>${p.NOMGEO ?? "Sin nombre"}</b>`);
+
+    addIdx("pueblos","NOMGEO",p.NOMGEO,l);
+
+    // ✅ ABRIR FICHA (clic)
+    l.on("click", (e)=>{
+      // Si quieres que primero se vea el popup y luego abrir,
+      // puedes cambiar a dblclick. Por ahora: clic abre ficha.
+      openFicha("pueblos", "NOMGEO", p.NOMGEO);
+    });
+
+    // Alternativa (mejor UX): doble clic abre ficha
+    // l.on("dblclick", (e)=>{
+    //   L.DomEvent.stop(e);
+    //   openFicha("pueblos", "NOMGEO", p.NOMGEO);
+    // });
   }
 }).addTo(map);
 overlays["Pueblos"]=pueblos;
@@ -183,11 +206,23 @@ overlays["Pueblos"]=pueblos;
 const cascos = L.geoJSON(await load("data/cascos_haciendas.geojson"),{
   pointToLayer:marker("#ff4d4d"),
   onEachFeature:(f,l)=>{
-    const p=f.properties;
-    l.bindPopup(`<b>${p.Hacienda}</b><br>${p.Municipio}`);
+    const p=f.properties || {};
+    l.bindPopup(`<b>${p.Hacienda ?? "Sin nombre"}</b><br>${p.Municipio ?? ""}`);
+
     addIdx("cascos","Hacienda",p.Hacienda,l);
     addIdx("cascos","Distrito",p.Distrito,l);
     addIdx("cascos","Municipio",p.Municipio,l);
+
+    // ✅ ABRIR FICHA (clic)
+    l.on("click", (e)=>{
+      openFicha("cascos", "Hacienda", p.Hacienda);
+    });
+
+    // Alternativa (mejor UX): doble clic abre ficha
+    // l.on("dblclick", (e)=>{
+    //   L.DomEvent.stop(e);
+    //   openFicha("cascos", "Hacienda", p.Hacienda);
+    // });
   }
 }).addTo(map);
 overlays["Cascos de hacienda"]=cascos;
@@ -245,7 +280,10 @@ selLayer.onchange=refreshFields;
 selField.onchange=refreshList;
 
 refreshFields();
-})();
+})().catch(err=>{
+  console.error(err);
+  alert("Error cargando capas. Revisa consola (F12) y rutas en /data.");
+});
 </script>
 </body>
 </html>
