@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Ficha</title>
+<style>
+  body{ font:14px system-ui,-apple-system,Segoe UI,Roboto,Arial; margin:0; background:#f6f7fb; color:#111;}
+  header{ background:#fff; border-bottom:1px solid #e8e8e8; }
+  .wrap{ max-width:980px; margin:0 auto; padding:16px 18px 28px; }
+  .bar{ display:flex; gap:10px; flex-wrap:wrap; align-items:center; padding:14px 18px; max-width:980px; margin:0 auto;}
+  .btn{
+    display:inline-block; padding:10px 12px; border:1px solid #dcdcdc; border-radius:12px;
+    text-decoration:none; color:#111; background:#fff; cursor:pointer;
+  }
+  .btn:hover{ background:#f3f3f3; }
+  .title{ font-weight:900; font-size:18px; }
+  .subtitle{ color:#666; font-size:12px; margin-top:2px; }
+  .card{ background:#fff; border:1px solid #e8e8e8; border-radius:14px; padding:14px; box-shadow:0 10px 24px rgba(0,0,0,.06); }
+  table{ width:100%; border-collapse:collapse; margin-top:10px; }
+  th{ text-align:left; width:240px; padding:10px; border-top:1px solid #f0f0f0; color:#333; font-weight:900; }
+  td{ padding:10px; border-top:1px solid #f0f0f0; color:#111; }
+  .media{ display:grid; grid-template-columns: 1fr; gap:12px; margin-top:12px; }
+  .imgbox{ border:1px solid #eee; border-radius:14px; overflow:hidden; background:#fafafa; }
+  .imgbox img{ width:100%; height:auto; display:block; }
+  .muted{ color:#666; }
+  .row{ display:flex; gap:12px; flex-wrap:wrap; align-items:center; margin-top:10px; }
+  code{ background:#f0f0f0; padding:2px 6px; border-radius:8px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="bar">
+    <a class="btn" id="backBtn" href="./">← Volver al geoportal</a>
+    <a class="btn" id="shareBtn" href="#">🔗 Copiar enlace</a>
+    <div>
+      <div class="title" id="pageTitle">Ficha</div>
+      <div class="subtitle" id="pageSub">—</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="card" id="card">
+    Cargando ficha…
+  </div>
+</div>
+
+<script>
+  // ====== CONFIG ======
+  const DATA = {
+    pueblos: "data/pueblos.geojson",
+    cascos:  "data/cascos_haciendas.geojson"
+  };
+
+  function esc(str){
+    return String(str ?? "").replace(/[&<>"']/g, t => ({
+      "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
+    }[t]));
+  }
+  function s(v){ return (v===null||v===undefined) ? "" : String(v).trim(); }
+
+  function getParam(name){
+    return new URLSearchParams(location.search).get(name) ?? "";
+  }
+
+  // Intenta extraer ID de Google Drive y convertirlo a una URL embebible
+  function driveId(url){
+    const u = String(url||"");
+    // formatos típicos:
+    // https://drive.google.com/file/d/ID/view?...
+    // https://drive.google.com/open?id=ID
+    // https://drive.google.com/uc?id=ID&export=download
+    let m = u.match(/\/file\/d\/([a-zA-Z0-9_-]+)/);
+    if (m) return m[1];
+    m = u.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+    if (m) return m[1];
+    return "";
+  }
+
+  function bestImageURL(url){
+    const id = driveId(url);
+    if (id){
+      // "uc?export=view" suele permitir render de imagen directa
+      return `https://drive.google.com/uc?export=view&id=${id}`;
+    }
+    return url;
+  }
+
+  async function loadGeoJSON(url){
+    const res = await fetch(url, { cache:"no-store" });
+    if(!res.ok) throw new Error(`No se pudo cargar ${url} (HTTP ${res.status})`);
+    return await res.json();
+  }
+
+  function normalizeValue(v){
+    return s(v).toLowerCase();
+  }
+
+  function pickProps(feature){
+    return feature?.properties || {};
+  }
+
+  function buildRows(tipo, props){
+    if (tipo === "pueblos"){
+      return [
+        ["NOMGEO", props?.NOMGEO],
+        ["ÁMBITO", props?.AMBITO],
+        ["Foto", props?.Foto]
+      ];
+    }
+    // cascos
+    const ubic = props?.Ubicación ?? props?.Ubicacion ?? "";
+    return [
+      ["Hacienda", props?.Hacienda],
+      ["Distrito", props?.Distrito],
+      ["Municipio", props?.Municipio],
+      ["Ubicación", ubic],
+      ["Prop_1897", props?.Prop_1897],
+      ["Prop_1905", props?.Prop_1905],
+      ["Pr_1917-40", props?.["Pr_1917-40"] ?? props?.Pr_1917_40],
+      ["Foto", props?.Foto],
+      ["Video", props?.Video]
+    ];
+  }
+
+  function renderFicha(tipo, campo, valor, props){
+    const title = (tipo==="cascos") ? (props?.Hacienda ?? "Ficha") : (props?.NOMGEO ?? "Ficha");
+    document.title = title;
+    document.getElementById("pageTitle").textContent = title;
+    document.getElementById("pageSub").textContent = `${tipo} • ${campo}: ${valor}`;
+
+    const rows = buildRows(tipo, props);
+
+    const tableRows = rows
+      .filter(([k]) => k !== "Foto" && k !== "Video") // foto/video los renderizamos abajo bonito
+      .map(([k,v]) => `
+        <tr>
+          <th>${esc(k)}</th>
+          <td>${esc(s(v) ? v : "s/d")}</td>
+        </tr>
+      `).join("");
+
+    const foto = s(props?.Foto);
+    const video = s(props?.Video);
+
+    const imgUrl = foto ? bestImageURL(foto) : "";
+
+    const mediaHTML = `
+      <div class="media">
+        ${foto ? `
+          <div class="imgbox">
+            <img src="${esc(imgUrl)}" alt="Foto" onerror="this.closest('.imgbox').innerHTML='<div style=&quot;padding:12px&quot; class=&quot;muted&quot;>No se pudo incrustar la imagen (Drive a veces bloquea). Usa el botón “Abrir foto”.</div>';">
+          </div>
+        ` : `<div class="muted">📷 Sin foto</div>`}
+
+        <div class="row">
+          ${foto ? `<a class="btn" href="${esc(foto)}" target="_blank" rel="noopener">📷 Abrir foto</a>` : ""}
+          ${video ? `<a class="btn" href="${esc(video)}" target="_blank" rel="noopener">🎥 Abrir video</a>` : ""}
+        </div>
+
+        <div class="muted">
+          Enlace compartible: <code>${esc(location.href)}</code>
+        </div>
+      </div>
+    `;
+
+    document.getElementById("card").innerHTML = `
+      <div class="muted" style="font-size:12px;">Ficha generada desde GeoJSON</div>
+      <table>${tableRows}</table>
+      ${mediaHTML}
+    `;
+  }
+
+  function findFeatureBy(tipo, campo, valor, geojson){
+    const target = normalizeValue(valor);
+    for (const f of (geojson.features || [])){
+      const props = pickProps(f);
+      // ojo: en cascos el campo es Hacienda/Distrito/Municipio, en pueblos NOMGEO
+      const v = props?.[campo];
+      if (normalizeValue(v) === target) return f;
+    }
+    return null;
+  }
+
+  // ====== INIT ======
+  (async ()=>{
+    const tipo  = getParam("tipo");   // "pueblos" | "cascos"
+    const campo = getParam("campo");  // "NOMGEO" | "Hacienda" | "Distrito" | "Municipio"
+    const valor = getParam("valor");  // texto
+
+    // Botón volver: al geoportal principal (carpeta actual)
+    document.getElementById("backBtn").href = "./";
+
+    // Copiar enlace
+    document.getElementById("shareBtn").addEventListener("click", async (e)=>{
+      e.preventDefault();
+      try{
+        await navigator.clipboard.writeText(location.href);
+        alert("Enlace copiado.");
+      }catch{
+        prompt("Copia este enlace:", location.href);
+      }
+    });
+
+    // Validaciones básicas
+    const allowed = {
+      pueblos: ["NOMGEO"],
+      cascos: ["Hacienda","Distrito","Municipio"]
+    };
+
+    if (!DATA[tipo] || !allowed[tipo]?.includes(campo) || !s(valor)){
+      document.getElementById("card").innerHTML = `
+        <div class="muted">URL incompleta o inválida.</div>
+        <p>Ejemplos:</p>
+        <ul>
+          <li><code>ficha.html?tipo=pueblos&campo=NOMGEO&valor=San%20Pablo%20Etla</code></li>
+          <li><code>ficha.html?tipo=cascos&campo=Hacienda&valor=Blanca</code></li>
+        </ul>
+      `;
+      return;
+    }
+
+    const geojson = await loadGeoJSON(DATA[tipo]);
+    const feat = findFeatureBy(tipo, campo, valor, geojson);
+
+    if (!feat){
+      document.getElementById("card").innerHTML = `
+        <div class="muted">No encontré un registro con:</div>
+        <p><b>${esc(tipo)}</b> • ${esc(campo)} = <code>${esc(valor)}</code></p>
+        <a class="btn" href="./">← Volver al geoportal</a>
+      `;
+      return;
+    }
+
+    renderFicha(tipo, campo, valor, pickProps(feat));
+  })().catch(err=>{
+    console.error(err);
+    document.getElementById("card").innerHTML = `
+      <div class="muted">Error cargando la ficha. Revisa consola (F12).</div>
+    `;
+  });
+</script>
+
+</body>
+</html>
