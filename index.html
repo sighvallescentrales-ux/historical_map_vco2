@@ -154,7 +154,7 @@
 
     <!-- Panel lateral de mapas históricos -->
     <div id="overlay-panel" class="card">
-      <div class="card-header">Mapas históricos (XY tiles)</div>
+      <div class="card-header">Mapas históricos del Distrito Centro</div>
       <div id="overlays"></div>
     </div>
   </div>
@@ -194,24 +194,39 @@
 
     /* MAPAS HISTÓRICOS: Aranjuez y Prio */
     const overlayConfigs = [
-      {
-        id: "aranjuez",
-        nombre: "Hacienda Aranjuez",
-        url: "./tiles_aranjuez/{z}/{x}/{y}.png",
-        opacidadInicial: 0.6,
-        minZoom: 12,
-        maxZoom: 18
-      },
-      {
-        id: "prio",
-        nombre: "Hacienda Prio",
-        url: "./tiles_prio/{z}/{x}/{y}.png",
-        opacidadInicial: 0.6,
-        minZoom: 12,
-        maxZoom: 18
-      }
-    ];
-
+    {
+    id: "aranjuez",
+    nombre: "Hacienda Aranjuez",
+    url: "./tiles_aranjuez/{z}/{x}/{y}.png",
+    opacidadInicial: 0.6,
+    minZoom: 5,
+    maxZoom: 20
+  },
+  {
+    id: "prio",
+    nombre: "Hacienda Prio",
+    url: "./tiles_prio/{z}/{x}/{y}.png",
+    opacidadInicial: 0.6,
+    minZoom: 5,
+    maxZoom: 20
+  },
+  {
+    id: "candiani_cia",
+    nombre: "Haciendas Candiani y Compañía",
+    url: "./hac_candiani_cia/{z}/{x}/{y}.png",
+    opacidadInicial: 0.6,
+    minZoom: 5,
+    maxZoom: 20
+  },
+  {
+    id: "cinco_senores",
+    nombre: "Hacienda Cinco Señores",
+    url: "./hac_cinco_senio/{z}/{x}/{y}.png",
+    opacidadInicial: 0.6,
+    minZoom: 5,
+    maxZoom: 20
+  }
+];
     const overlayLayers = {};
     const overlaysDiv = document.getElementById("overlays");
 
